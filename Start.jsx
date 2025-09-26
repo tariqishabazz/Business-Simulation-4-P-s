@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import Logo from "../assets/Logo.png";
 
+// Start page for the game
 export default function Start() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
@@ -19,12 +20,13 @@ export default function Start() {
 
       {/* Buttons */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Start game button */}
         <Link to="/game" className="px-6 py-3 bg-[#1252A3] text-white rounded-xl hover:bg-blue-700 text-center font-bold">
           Start Game
         </Link>
 
-        <button
-          className="px-6 py-3 bg-gray-400 text-white rounded-xl cursor-not-allowed text-center font-bold" disabled>
+        {/* Coming soon features (disabled buttons) */}
+        <button className="px-6 py-3 bg-gray-400 text-white rounded-xl cursor-not-allowed text-center font-bold" disabled>
           Continue Game (Coming Soon)
         </button>
 

@@ -1,8 +1,23 @@
-import { Link } from "react-router-dom";
+// Start page
+// - Entry hub after login. Minimal UI: start a new game, logout, placeholders for future features.
+// - Keeps routing simple and intentionally avoids complex state; session/auth tokens live in storage.
+import { Link, useNavigate } from "react-router-dom";
 import Logo from "../assets/Logo.png";
 
-// Start page for the game
-export default function Start() {
+export default function Start()
+{
+  const navigate = useNavigate();
+
+  // Clear both storage locations and return to login. Useful in demo/dev.
+  const handleLogout = () =>
+  {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("authUser");
+    sessionStorage.removeItem("authToken");
+    sessionStorage.removeItem("authUser");
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
       {/* Logo + Title */}
@@ -20,18 +35,26 @@ export default function Start() {
 
       {/* Buttons */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Start game button */}
+        {/* Navigate to the main game page */}
         <Link to="/game" className="px-6 py-3 bg-[#1252A3] text-white rounded-xl hover:bg-blue-700 text-center font-bold">
           Start Game
         </Link>
 
-        {/* Coming soon features (disabled buttons) */}
+        {/* Disabled placeholders for future features (keeps layout stable during development) */}
         <button className="px-6 py-3 bg-gray-400 text-white rounded-xl cursor-not-allowed text-center font-bold" disabled>
           Continue Game (Coming Soon)
         </button>
 
         <button className="px-6 py-3 bg-gray-400 text-white rounded-xl cursor-not-allowed text-center font-bold" disabled>
           View Previous Grades (Coming Soon)
+        </button>
+
+        {/* Logout clears local session and returns to login */}
+        <button
+          onClick={handleLogout}
+          className="px-6 py-3 bg-[#1252A3] text-white rounded-xl hover:bg-blue-700 text-center font-bold"
+        >
+          Logout / Back to Login
         </button>
       </div>
     </div>

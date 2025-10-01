@@ -105,26 +105,54 @@ export default function Game(
   setLastWasCustom(useCustom);
 
     let result;
-    try {
+    try 
+    {
       result = await simulateTurn(payload);
-    } catch (err) {
+    } 
+    
+    catch (err) 
+    {
       console.error("simulateTurn failed:", err);
       // fallback to a safe mock structure if API fails
       result = { stats, done: false, event: "(No response)", rivalMove: "(No response)" };
-    } finally {
+    } 
+    
+    finally 
+    {
       setIsSubmitting(false);
     }
 
     setStats(result.stats || stats);
     setEvent(result.event || "");
     setRivalMove(result.rivalMove || "");
-    if (result.chosenOption) setSelectedOption(result.chosenOption);
+    // If backend returned a mapped chosenOption, prefer that for the selection.
+    // Otherwise, decide whether to clear the UI selection depending on how the player submitted:
+    // - If the player clicked an option (not a custom text), clear the selection to prepare for the next turn.
+    // - If the player submitted a custom move, set selectedOption only when the backend mapped it; otherwise clear.
+    if (result.chosenOption) {
+      setSelectedOption(result.chosenOption);
+    } else {
+      // No mapping returned by backend
+      if (useCustom) {
+        // custom move submitted but not mapped -> clear selection (nothing to highlight)
+        setSelectedOption(null);
+      } else {
+        // player explicitly selected an option -> clear it for next turn
+        setSelectedOption(null);
+      }
+    }
+
     // Record which option the simulator selected (or the raw choice)
     setLastChosenOption(result.chosenOption || choice || null);
+
     // Show explanation if provided; if user submitted a custom move but no explanation was
     // returned, show a short fallback so the UI doesn't remain empty.
-    if (result.explanation) setLastExplanation(result.explanation);
-    else if (useCustom) setLastExplanation("(No explanation available)");
+    if (result.explanation) 
+      setLastExplanation(result.explanation);
+    
+    else if (useCustom) 
+      setLastExplanation("(No explanation available)");
+
     setTurn((prev) => prev + 1);
 
     setHistory((prev) => [
@@ -132,8 +160,6 @@ export default function Game(
       ...prev.slice(0, 2),
     ]);
 
-    // If backend returned chosenOption from a mapping, keep it; otherwise clear selection when a normal option was used
-    if (!result.chosenOption) setSelectedOption(null);
     setCustomMove("");
 
     if (result.done) {

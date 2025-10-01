@@ -121,18 +121,92 @@ const mockSimulate = (payload) =>
         explanation = null;
       }
 
-      resolve(
-      {
-        stats: 
-        {
-          cash: payload.stats.cash + 50,        // Increment cash as example
-          loyalty: payload.stats.loyalty + 5,   // Increment loyalty
-          marketShare: payload.stats.marketShare + 1, // Increment market share
+      // Helper: parse an effects string like "−$100, +L+3, +S+2%" into numeric deltas
+      const parseEffects = (effectsStr) => {
+        const deltas = { cash: 0, loyalty: 0, marketShare: 0 };
+        if (!effectsStr || typeof effectsStr !== 'string') return deltas;
+        // Normalize unicode minus to ASCII hyphen
+        const normalized = effectsStr.replace(/\u2212/g, '-');
+        // Split by comma
+        const parts = normalized.split(',').map(p => p.trim()).filter(Boolean);
+
+        parts.forEach(part => {
+          // First handle cash explicitly because the sign may appear before the $ sign: +$80 or −$100
+          const cashMatch = part.match(/([+-])?\s*\$\s*([0-9]+)/);
+          if (cashMatch) {
+            const sign = cashMatch[1] === '-' ? -1 : 1;
+            const val = parseInt(cashMatch[2], 10) || 0;
+            deltas.cash += sign * val;
+            return;
+          }
+
+          // For loyalty and market share, extract all signed numbers in the part and assign
+          // them to L or S depending on which letter appears in the text.
+          const numbers = (part.match(/[+-]?\d+/g) || []).map(n => parseInt(n, 10));
+          const sum = numbers.reduce((a, b) => a + b, 0);
+
+          if (/[Ll]/.test(part)) {
+            deltas.loyalty += sum;
+            return;
+          }
+
+          if (/[Ss]/.test(part)) {
+            deltas.marketShare += sum;
+            return;
+          }
+
+          // As a last attempt, if the part contains a standalone number and no letter, treat it as cash
+          if (!isNaN(sum) && sum !== 0 && numbers.length > 0) {
+            deltas.cash += sum;
+            return;
+          }
+        });
+
+        return deltas;
+      };
+
+      // Determine which option (if any) should apply its effects
+      // effectiveCode: chosenOption (if mapping found) or explicit option code submitted by player
+      let effectiveCode = chosenOption;
+      try {
+        const choiceRaw = payload.choice;
+        if (!effectiveCode && typeof choiceRaw === 'string' && /^[A-Za-z]\d+$/i.test(choiceRaw.trim())) {
+          effectiveCode = choiceRaw.trim().toUpperCase();
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // Flatten options (reuse opts if available)
+      const flattenedOpts = [];
+      if (payload.options) {
+        Object.keys(payload.options).forEach((cat) => {
+          (payload.options[cat] || []).forEach((o) => flattenedOpts.push({ ...o, category: cat }));
+        });
+      }
+
+      // Find the option object to get its effects
+      const optionObj = flattenedOpts.find(o => (o.code || '').toUpperCase() === (effectiveCode || '').toUpperCase());
+
+      // Default deltas (if no option found we keep 0 change except small variability)
+      let deltas = { cash: 0, loyalty: 0, marketShare: 0 };
+      if (optionObj && optionObj.effects) {
+        deltas = parseEffects(optionObj.effects);
+      } else {
+        // Fallback small deterministic-ish drift so game still progresses when no known option
+        deltas = { cash: 50, loyalty: 5, marketShare: 1 };
+      }
+
+      resolve({
+        stats: {
+          cash: (payload.stats && typeof payload.stats.cash === 'number' ? payload.stats.cash : 0) + deltas.cash,
+          loyalty: (payload.stats && typeof payload.stats.loyalty === 'number' ? payload.stats.loyalty : 0) + deltas.loyalty,
+          marketShare: (payload.stats && typeof payload.stats.marketShare === 'number' ? payload.stats.marketShare : 0) + deltas.marketShare,
         },
-        done: payload.turn >= payload.maxTurns, // Check if game is finished
+        done: payload.turn >= payload.maxTurns,
         event: possibleEvents[Math.floor(Math.random() * possibleEvents.length)],
         rivalMove: possibleRivalMoves[Math.floor(Math.random() * possibleRivalMoves.length)],
-        chosenOption,
+        chosenOption: effectiveCode || null,
         explanation,
       });
     }, 800); // Simulate network delay
@@ -165,7 +239,9 @@ const BASE_URL = "http://localhost:5000/api"; // Change this to your backend URL
 const realSimulate = async (payload) =>
 {
   console.log("api: realSimulate called", { turn: payload.turn, choice: payload.choice, BASE_URL });
-  
+  const start = Date.now();
+  const MIN_DELAY = 800; // match mockSimulate delay so UI animations feel consistent
+
   try
   {
     const res = await fetch(`${BASE_URL}/simulate`, 
@@ -176,11 +252,25 @@ const realSimulate = async (payload) =>
     });
 
     if (!res.ok) throw new Error("Network response not ok");
-    return res.json(); // Return parsed JSON response
+    const json = await res.json();
+
+    // Ensure a minimum delay so the frontend shows the "Thinking..." state smoothly
+    const elapsed = Date.now() - start;
+    if (elapsed < MIN_DELAY)
+    {
+      await new Promise((r) => setTimeout(r, MIN_DELAY - elapsed));
+    }
+
+    return json; // Return parsed JSON response
   } catch (err)
   {
     console.error("Simulation failed:", err);
-    // Fallback to current stats if API fails
+    // Fallback to current stats if API fails (also respect min delay)
+    const elapsed = Date.now() - start;
+    if (elapsed < MIN_DELAY)
+    {
+      await new Promise((r) => setTimeout(r, MIN_DELAY - elapsed));
+    }
     return { stats: payload.stats, done: false };
   }
 };
@@ -225,6 +315,7 @@ export const fetchGrades = () =>
   return (USE_MOCK ? mockGrades() : realGrades());
 };
 
+
 // =======================
 // AUTH (mock)
 // =======================
@@ -242,6 +333,7 @@ export const loginUser = async ({ email, password, rememberMe }) =>
         {
           resolve({ id: 1, name: "Student", email, token: "mock-token-123", rememberMe });
         } 
+        
         else
         {
           reject(new Error("Invalid credentials (use student@example.com / password)"));
@@ -259,7 +351,9 @@ export const loginUser = async ({ email, password, rememberMe }) =>
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    if (!res.ok) throw new Error("Login failed");
+    if (!res.ok) 
+      throw new Error("Login failed");
+    
     return res.json();
   } 
   

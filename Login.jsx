@@ -181,7 +181,7 @@ export default function LoginPage({
                   onClick={() => navigate("/start", { replace: true })}
                   className="w-full mt-3 bg-gray-200 text-gray-800 py-3 px-6 rounded-md font-medium hover:bg-gray-300"
                 >
-                  Skip login — go to Start
+                  Skip login — go to Start (Temporary)
                 </button>
               </form>
 
@@ -191,6 +191,12 @@ export default function LoginPage({
                     Don't have an account?{" "}
                     <button type="button" onClick={() => navigate('/register')} className="text-blue-600 hover:text-blue-800 font-medium">
                       Register now
+                    </button>
+                  </p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    Not a student?{" "}
+                    <button type="button" onClick={() => navigate('/admin-login')} className="text-blue-600 hover:text-blue-800 font-medium">
+                      Admin login
                     </button>
                   </p>
                 </div>

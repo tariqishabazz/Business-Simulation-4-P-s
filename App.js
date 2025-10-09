@@ -8,6 +8,7 @@ import Grades from "./pages/Grades";
 import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
+import AdminWrapper from "./pages/Admin";
 
 function App()
 {
@@ -21,6 +22,8 @@ function App()
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/start" element={<Start />} />
         <Route path="/game" element={<Game />} />
+  <Route path="/admin-login" element={<AdminWrapper />} />
+  <Route path="/admin" element={<AdminWrapper />} />
         <Route path="/grades" element={<Grades />} />
         <Route path="*" element={<p className="p-6 text-center">Page not found</p>} />
       </Routes>
